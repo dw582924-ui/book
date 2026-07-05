@@ -424,8 +424,8 @@ const TIPOS = {
   }
 };
 const CATEGORIAS = {
-  ingreso: ["Salario", "Freelance", "Inversiones", "Otro ingreso"],
-  gasto: ["Vivienda", "Comida", "Transporte", "Servicios", "Salud", "Ocio", "Otro gasto"],
+  ingreso: ["Salario", "Freelance", "Inversiones", "Retiro de ahorros", "Otro ingreso"],
+  gasto: ["Vivienda", "Comida", "Transporte", "Servicios", "Salud", "Ocio", "Ahorro", "Otro gasto"],
   deuda: ["Tarjeta de crédito", "Préstamo", "Pago pendiente", "Otro"]
 };
 function currency(n) {
@@ -1312,7 +1312,9 @@ function App({
     if (isNaN(amt) || amt === 0) return;
     const goal = savings.find(g => g.id === id);
     if (!goal) return;
-    const nuevoActual = Math.max(0, (Number(goal.actual) || 0) + amt);
+    const previoActual = Number(goal.actual) || 0;
+    const nuevoActual = Math.max(0, previoActual + amt);
+    const montoReal = nuevoActual - previoActual; // clamped delta actually applied to the goal
     setSavings(prev => prev.map(g => g.id === id ? {
       ...g,
       actual: nuevoActual
@@ -1324,6 +1326,35 @@ function App({
     await sb.from("savings_goals").update({
       actual: nuevoActual
     }).eq("id", id);
+
+    // Mirror the movement in the main ledger so the money actually leaves
+    // (deposit) or returns to (withdrawal) the principal account, instead
+    // of being counted both in "flujo" and in "ahorroTotal" at once.
+    if (montoReal !== 0) {
+      const isDeposit = montoReal > 0;
+      const entryPayload = {
+        tipo: isDeposit ? "gasto" : "ingreso",
+        descripcion: `${isDeposit ? "Aporte a" : "Retiro de"} meta: ${goal.nombre}`,
+        categoria: isDeposit ? "Ahorro" : "Retiro de ahorros",
+        monto: Math.abs(montoReal),
+        fecha: today.toISOString().slice(0, 10)
+      };
+      const {
+        data: entryData,
+        error: entryError
+      } = await sb.from("entries").insert(entryPayload).select().single();
+      if (!entryError && entryData) {
+        setEntries(prev => [...prev, {
+          id: entryData.id,
+          tipo: entryData.tipo,
+          descripcion: entryData.descripcion,
+          categoria: entryData.categoria,
+          monto: Number(entryData.monto),
+          fecha: entryData.fecha,
+          estado: entryData.estado || undefined
+        }]);
+      }
+    }
   };
   const updateBudget = (cat, value) => {
     setBudgets(prev => ({
