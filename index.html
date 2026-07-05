@@ -1,0 +1,633 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Libro de cuentas</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+CiAgPHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTQiIGZpbGw9IiMyMDI4MUYiLz4KICA8dGV4dCB4PSIyNyIgeT0iNDUiIGZvbnQtZmFtaWx5PSJHZW9yZ2lhLCAnVGltZXMgTmV3IFJvbWFuJywgc2VyaWYiIGZvbnQtc2l6ZT0iMzQiIGZvbnQtd2VpZ2h0PSI2MDAiIGZpbGw9IiNGNEYxRTgiIHRleHQtYW5jaG9yPSJtaWRkbGUiPkw8L3RleHQ+CiAgPGNpcmNsZSBjeD0iNDYiIGN5PSI0NiIgcj0iMTIuNSIgZmlsbD0iIzJGNkI0RiIvPgogIDx0ZXh0IHg9IjQ2IiB5PSI1MSIgZm9udC1mYW1pbHk9Ikdlb3JnaWEsICdUaW1lcyBOZXcgUm9tYW4nLCBzZXJpZiIgZm9udC1zaXplPSIxNSIgZmlsbD0iI0Y0RjFFOCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+JDwvdGV4dD4KPC9zdmc+Cg==" />
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'Iowan Old Style','Palatino Linotype',Georgia,serif; background: #F4F1E8; color: #20281F; }
+  .lc-input, .lc-select {
+    font-family: 'Courier New', monospace; border: none; border-bottom: 1.5px solid #B9AF95;
+    background: transparent; padding: 6px 2px; font-size: 14px; color: #20281F; outline: none; width: 100%;
+  }
+  .lc-input:focus, .lc-select:focus { border-bottom-color: #20281F; }
+  .lc-btn {
+    font-family: 'Iowan Old Style', Georgia, serif; background: #20281F; color: #F4F1E8; border: none;
+    padding: 10px 18px; font-size: 13px; letter-spacing: 0.04em; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .lc-btn:hover { background: #34402D; }
+  .lc-btn-ghost {
+    font-family: 'Iowan Old Style', Georgia, serif; background: transparent; color: #20281F;
+    border: 1px solid #B9AF95; padding: 9px 16px; font-size: 13px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .lc-btn-ghost:hover { background: #ECE7D8; }
+  .lc-tab {
+    padding: 8px 16px; font-size: 13px; cursor: pointer; border: 1px solid #B9AF95;
+    background: transparent; font-family: 'Iowan Old Style', Georgia, serif;
+  }
+  .lc-tab.active { background: #20281F; color: #F4F1E8; border-color: #20281F; }
+  .lc-navtab {
+    display: flex; align-items: center; gap: 6px; padding: 10px 4px; font-size: 13px;
+    cursor: pointer; background: transparent; border: none; border-bottom: 2px solid transparent;
+    color: #6B6553; font-family: 'Iowan Old Style', Georgia, serif;
+  }
+  .lc-navtab.active { color: #20281F; border-bottom-color: #20281F; }
+  .lc-icon-btn { background: transparent; border: none; cursor: pointer; color: #8A3324; padding: 4px; display: flex; }
+  .lc-icon-btn:hover { opacity: 0.65; }
+  table.ledger { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  table.ledger th {
+    text-align: left; font-weight: normal; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: #6B6553; padding: 6px 8px; border-bottom: 1.5px solid #20281F;
+  }
+  table.ledger td { padding: 9px 8px; border-bottom: 1px solid #DCD5C0; vertical-align: middle; }
+  table.ledger tr:hover td { background: #ECE7D8; }
+  .stitch {
+    width: 26px; flex-shrink: 0;
+    background-image: repeating-linear-gradient(to bottom, #B9AF95 0, #B9AF95 2px, transparent 2px, transparent 12px);
+    background-position: 12px 0; background-repeat: repeat-y; background-color: #E6E0CD; border-right: 1px solid #B9AF95;
+  }
+  .progress-track { width: 100%; height: 8px; background: #DCD5C0; overflow: hidden; }
+  .progress-fill { height: 100%; }
+  @keyframes fadeIn { from { opacity:0; transform: translateY(4px);} to { opacity:1; transform: translateY(0);} }
+  .lc-row { animation: fadeIn 0.25s ease; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js" crossorigin></script>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useMemo, useCallback, useRef } = React;
+
+const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+
+const TIPOS = {
+  ingreso: { label: "Ingreso", ink: "#2F6B4F", inkSoft: "#E4EEE8" },
+  gasto:   { label: "Gasto",   ink: "#8A3324", inkSoft: "#F3E4DF" },
+  deuda:   { label: "Deuda",   ink: "#B78B2E", inkSoft: "#F5EBD6" },
+};
+
+const CATEGORIAS = {
+  ingreso: ["Salario", "Freelance", "Inversiones", "Otro ingreso"],
+  gasto: ["Vivienda", "Comida", "Transporte", "Servicios", "Salud", "Ocio", "Otro gasto"],
+  deuda: ["Tarjeta de crédito", "Préstamo", "Pago pendiente", "Otro"],
+};
+
+const KEY_ENTRIES = "libro-cuentas:entries";
+const KEY_SAVINGS = "libro-cuentas:savings";
+const KEY_BUDGETS = "libro-cuentas:budgets";
+
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+
+function currency(n) {
+  const v = Number(n) || 0;
+  const sign = v < 0 ? "-" : "";
+  return sign + "$" + Math.abs(v).toLocaleString("es-PA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function monthKey(date) { return date.slice(0, 7); }
+
+/* ---------- iconos simples en SVG (sin dependencias externas) ---------- */
+function Icon({ name, size = 15, strokeWidth = 1.8, color }) {
+  const p = { fill: "none", stroke: color || "currentColor", strokeWidth, strokeLinecap: "round", strokeLinejoin: "round" };
+  const paths = {
+    plus: <><line x1="12" y1="5" x2="12" y2="19" {...p}/><line x1="5" y1="12" x2="19" y2="12" {...p}/></>,
+    trash: <><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" {...p}/></>,
+    "chevron-left": <path d="M14 6l-6 6 6 6" {...p}/>,
+    "chevron-right": <path d="M10 6l6 6-6 6" {...p}/>,
+    "trend-up": <><path d="M4 16l6-6 4 4 6-8" {...p}/><path d="M14 6h6v6" {...p}/></>,
+    "trend-down": <><path d="M4 8l6 6 4-4 6 8" {...p}/><path d="M14 18h6v-6" {...p}/></>,
+    bank: <><path d="M4 21h16M5 21V10M19 21V10M3 10l9-6 9 6M9 21v-6M15 21v-6" {...p}/></>,
+    scale: <><path d="M12 3v18M6 7h12M6 7l-3 6a3 3 0 006 0l-3-6zM18 7l-3 6a3 3 0 006 0l-3-6zM8 21h8" {...p}/></>,
+    piggy: <><path d="M5 12a6 6 0 016-6h3a5 5 0 015 5v1l2 1-2 1v1a2 2 0 01-2 2h-1v2H12v-2H9a4 4 0 01-4-4z" {...p}/><circle cx="8.5" cy="12" r="0.6" fill={color || "currentColor"}/></>,
+    wallet: <><path d="M3 7a2 2 0 012-2h13a1 1 0 011 1v3M3 7v11a2 2 0 002 2h14a2 2 0 002-2v-8a1 1 0 00-1-1H16a2 2 0 000 4h5" {...p}/></>,
+    download: <><path d="M12 4v11m0 0l-4-4m4 4l4-4M4 19h16" {...p}/></>,
+    grid: <><rect x="3" y="3" width="7" height="7" {...p}/><rect x="14" y="3" width="7" height="7" {...p}/><rect x="3" y="14" width="7" height="7" {...p}/><rect x="14" y="14" width="7" height="7" {...p}/></>,
+    list: <><line x1="8" y1="6" x2="20" y2="6" {...p}/><line x1="8" y1="12" x2="20" y2="12" {...p}/><line x1="8" y1="18" x2="20" y2="18" {...p}/><line x1="4" y1="6" x2="4.01" y2="6" {...p}/><line x1="4" y1="12" x2="4.01" y2="12" {...p}/><line x1="4" y1="18" x2="4.01" y2="18" {...p}/></>,
+    target: <><circle cx="12" cy="12" r="8" {...p}/><circle cx="12" cy="12" r="4" {...p}/><circle cx="12" cy="12" r="0.6" fill={color || "currentColor"}/></>,
+  };
+  return <svg width={size} height={size} viewBox="0 0 24 24">{paths[name]}</svg>;
+}
+
+function LogoMark({ size = 26 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 64 64" aria-hidden="true">
+      <rect width="64" height="64" rx="14" fill="#20281F" />
+      <text x="27" y="45" fontFamily="Georgia, 'Times New Roman', serif" fontSize="34" fontWeight="600" fill="#F4F1E8" textAnchor="middle">L</text>
+      <circle cx="46" cy="46" r="12.5" fill="#2F6B4F" />
+      <text x="46" y="51" fontFamily="Georgia, 'Times New Roman', serif" fontSize="15" fill="#F4F1E8" textAnchor="middle">$</text>
+    </svg>
+  );
+}
+
+/* ---------- gráficos con Chart.js sobre <canvas> ---------- */
+function BarMonthly({ data }) {
+  const ref = useRef(null);
+  const chartRef = useRef(null);
+  useEffect(() => {
+    if (chartRef.current) chartRef.current.destroy();
+    chartRef.current = new Chart(ref.current, {
+      type: "bar",
+      data: {
+        labels: data.map(d => d.mes),
+        datasets: [
+          { label: "Ingresos", data: data.map(d => d.Ingresos), backgroundColor: "#2F6B4F", borderRadius: 2, maxBarThickness: 22 },
+          { label: "Gastos", data: data.map(d => d.Gastos), backgroundColor: "#8A3324", borderRadius: 2, maxBarThickness: 22 },
+        ],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        scales: {
+          x: { grid: { display: false }, ticks: { color: "#6B6553", font: { size: 11 } } },
+          y: { grid: { color: "#DCD5C0" }, ticks: { color: "#6B6553", font: { size: 10 }, callback: v => "$" + v } },
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: ctx => ctx.dataset.label + ": " + currency(ctx.parsed.y) } },
+        },
+      },
+    });
+    return () => chartRef.current && chartRef.current.destroy();
+  }, [data]);
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 16, marginBottom: 8, fontSize: 11.5, color: "#6B6553" }}>
+        <span><span style={{ display: "inline-block", width: 9, height: 9, background: "#2F6B4F", marginRight: 5 }}></span>Ingresos</span>
+        <span><span style={{ display: "inline-block", width: 9, height: 9, background: "#8A3324", marginRight: 5 }}></span>Gastos</span>
+      </div>
+      <div style={{ position: "relative", height: 200 }}>
+        <canvas ref={ref} role="img" aria-label="Ingresos y gastos de los últimos 6 meses"></canvas>
+      </div>
+    </div>
+  );
+}
+
+const PIE_COLORS = ["#8A3324", "#B75B3F", "#C98A6E", "#D9AB94", "#E4C6B4", "#EFDDD0"];
+
+function PieCategorias({ data }) {
+  const ref = useRef(null);
+  const chartRef = useRef(null);
+  useEffect(() => {
+    if (chartRef.current) chartRef.current.destroy();
+    if (!data.length) return;
+    chartRef.current = new Chart(ref.current, {
+      type: "doughnut",
+      data: {
+        labels: data.map(d => d.name),
+        datasets: [{ data: data.map(d => d.value), backgroundColor: data.map((_, i) => PIE_COLORS[i % PIE_COLORS.length]), borderColor: "#F4F1E8", borderWidth: 2 }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { position: "bottom", labels: { color: "#20281F", font: { family: "Georgia", size: 11 }, boxWidth: 10 } },
+          tooltip: { callbacks: { label: ctx => ctx.label + ": " + currency(ctx.parsed) } },
+        },
+      },
+    });
+    return () => chartRef.current && chartRef.current.destroy();
+  }, [data]);
+  if (!data.length) return <p style={{ fontSize: 13, color: "#9A9378", fontStyle: "italic" }}>Sin gastos este mes.</p>;
+  return <div style={{ position: "relative", height: 220 }}><canvas ref={ref} role="img" aria-label="Gastos por categoría del mes"></canvas></div>;
+}
+
+const TABS = [
+  { key: "resumen", label: "Resumen", icon: "grid" },
+  { key: "movimientos", label: "Movimientos", icon: "list" },
+  { key: "presupuesto", label: "Presupuesto", icon: "wallet" },
+  { key: "ahorros", label: "Ahorros", icon: "piggy" },
+];
+
+function App() {
+  const today = new Date();
+  const [tab, setTab] = useState("resumen");
+  const [cursor, setCursor] = useState({ y: today.getFullYear(), m: today.getMonth() });
+  const [entries, setEntries] = useState([]);
+  const [savings, setSavings] = useState([]);
+  const [budgets, setBudgets] = useState({});
+  const [loaded, setLoaded] = useState(false);
+  const [saveState, setSaveState] = useState("idle");
+
+  const [form, setForm] = useState({
+    tipo: "gasto", descripcion: "", categoria: CATEGORIAS.gasto[0],
+    monto: "", fecha: today.toISOString().slice(0, 10), estado: "pendiente",
+  });
+  const [goalForm, setGoalForm] = useState({ nombre: "", meta: "", fechaObjetivo: "" });
+  const [contribInputs, setContribInputs] = useState({});
+
+  useEffect(() => {
+    try { const e = localStorage.getItem(KEY_ENTRIES); if (e) setEntries(JSON.parse(e)); } catch (err) {}
+    try { const s = localStorage.getItem(KEY_SAVINGS); if (s) setSavings(JSON.parse(s)); } catch (err) {}
+    try { const b = localStorage.getItem(KEY_BUDGETS); if (b) setBudgets(JSON.parse(b)); } catch (err) {}
+    setLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (!loaded) return;
+    setSaveState("saving");
+    const t = setTimeout(() => {
+      try {
+        localStorage.setItem(KEY_ENTRIES, JSON.stringify(entries));
+        localStorage.setItem(KEY_SAVINGS, JSON.stringify(savings));
+        localStorage.setItem(KEY_BUDGETS, JSON.stringify(budgets));
+        setSaveState("saved");
+      } catch (err) { setSaveState("idle"); }
+    }, 400);
+    return () => clearTimeout(t);
+  }, [entries, savings, budgets, loaded]);
+
+  const activeKey = `${cursor.y}-${String(cursor.m + 1).padStart(2, "0")}`;
+
+  const monthEntries = useMemo(
+    () => entries.filter(e => monthKey(e.fecha) === activeKey).sort((a, b) => a.fecha.localeCompare(b.fecha)),
+    [entries, activeKey]
+  );
+
+  const totals = useMemo(() => {
+    const t = { ingreso: 0, gasto: 0, deuda: 0, deudaPagada: 0 };
+    monthEntries.forEach(e => {
+      const amt = Number(e.monto) || 0;
+      if (e.tipo === "deuda") { if (e.estado === "pagada") t.deudaPagada += amt; else t.deuda += amt; }
+      else { t[e.tipo] += amt; }
+    });
+    t.balance = t.ingreso - t.gasto;
+    return t;
+  }, [monthEntries]);
+
+  const historico = useMemo(() => {
+    let ingresos = 0, gastos = 0, deudaPendiente = 0;
+    entries.forEach(e => {
+      const amt = Number(e.monto) || 0;
+      if (e.tipo === "ingreso") ingresos += amt;
+      else if (e.tipo === "gasto") gastos += amt;
+      else if (e.tipo === "deuda" && e.estado !== "pagada") deudaPendiente += amt;
+    });
+    return { ingresos, gastos, deudaPendiente, flujo: ingresos - gastos };
+  }, [entries]);
+
+  const ahorroTotal = useMemo(() => savings.reduce((s, g) => s + (Number(g.actual) || 0), 0), [savings]);
+  const patrimonioNeto = historico.flujo + ahorroTotal - historico.deudaPendiente;
+
+  const last6 = useMemo(() => {
+    const arr = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(cursor.y, cursor.m - i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const items = entries.filter(e => monthKey(e.fecha) === key);
+      const ingreso = items.filter(e => e.tipo === "ingreso").reduce((s, e) => s + (Number(e.monto) || 0), 0);
+      const gasto = items.filter(e => e.tipo === "gasto").reduce((s, e) => s + (Number(e.monto) || 0), 0);
+      arr.push({ mes: MESES[d.getMonth()].slice(0, 3), Ingresos: ingreso, Gastos: gasto });
+    }
+    return arr;
+  }, [entries, cursor]);
+
+  const gastoPorCategoria = useMemo(() => {
+    const map = {};
+    monthEntries.filter(e => e.tipo === "gasto").forEach(e => { map[e.categoria] = (map[e.categoria] || 0) + (Number(e.monto) || 0); });
+    return Object.entries(map).map(([name, value]) => ({ name, value }));
+  }, [monthEntries]);
+
+  const presupuestoEstado = useMemo(() => {
+    return CATEGORIAS.gasto.map(cat => {
+      const gastado = monthEntries.filter(e => e.tipo === "gasto" && e.categoria === cat).reduce((s, e) => s + (Number(e.monto) || 0), 0);
+      const limite = Number(budgets[cat]) || 0;
+      const pct = limite > 0 ? Math.min(100, (gastado / limite) * 100) : 0;
+      return { categoria: cat, gastado, limite, pct, sobregiro: limite > 0 && gastado > limite };
+    });
+  }, [monthEntries, budgets]);
+
+  const totalPresupuestado = Object.values(budgets).reduce((s, v) => s + (Number(v) || 0), 0);
+
+  const changeMonth = useCallback((delta) => {
+    setCursor(c => {
+      let m = c.m + delta, y = c.y;
+      if (m < 0) { m = 11; y -= 1; }
+      if (m > 11) { m = 0; y += 1; }
+      return { y, m };
+    });
+  }, []);
+
+  const handleTipoChange = (tipo) => setForm(f => ({ ...f, tipo, categoria: CATEGORIAS[tipo][0] }));
+
+  const addEntry = (e) => {
+    e.preventDefault();
+    const monto = parseFloat(form.monto);
+    if (!form.descripcion.trim() || isNaN(monto) || monto <= 0) return;
+    const entry = { id: uid(), tipo: form.tipo, descripcion: form.descripcion.trim(), categoria: form.categoria, monto, fecha: form.fecha, estado: form.tipo === "deuda" ? form.estado : undefined };
+    setEntries(prev => [...prev, entry]);
+    setForm(f => ({ ...f, descripcion: "", monto: "" }));
+  };
+
+  const removeEntry = (id) => setEntries(prev => prev.filter(e => e.id !== id));
+  const toggleDeuda = (id) => setEntries(prev => prev.map(e => e.id === id ? { ...e, estado: e.estado === "pagada" ? "pendiente" : "pagada" } : e));
+
+  const exportCSV = () => {
+    const header = "Fecha,Tipo,Descripcion,Categoria,Monto,Estado\n";
+    const rows = entries.map(e => `${e.fecha},${TIPOS[e.tipo].label},"${e.descripcion.replace(/"/g, '""')}",${e.categoria},${e.monto},${e.estado || ""}`).join("\n");
+    const blob = new Blob([header + rows], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "libro-de-cuentas.csv"; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const addGoal = (e) => {
+    e.preventDefault();
+    const meta = parseFloat(goalForm.meta);
+    if (!goalForm.nombre.trim() || isNaN(meta) || meta <= 0) return;
+    setSavings(prev => [...prev, { id: uid(), nombre: goalForm.nombre.trim(), meta, actual: 0, fechaObjetivo: goalForm.fechaObjetivo }]);
+    setGoalForm({ nombre: "", meta: "", fechaObjetivo: "" });
+  };
+
+  const removeGoal = (id) => setSavings(prev => prev.filter(g => g.id !== id));
+
+  const addContribution = (id) => {
+    const amt = parseFloat(contribInputs[id]);
+    if (isNaN(amt) || amt === 0) return;
+    setSavings(prev => prev.map(g => g.id === id ? { ...g, actual: Math.max(0, (Number(g.actual) || 0) + amt) } : g));
+    setContribInputs(prev => ({ ...prev, [id]: "" }));
+  };
+
+  const updateBudget = (cat, value) => setBudgets(prev => ({ ...prev, [cat]: value }));
+
+  return (
+    <div style={{ display: "flex", justifyContent: "center" }}>
+      <div className="stitch" />
+      <div style={{ maxWidth: 880, width: "100%", padding: "36px 28px 60px" }}>
+
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <LogoMark size={30} />
+            <h1 style={{ fontSize: 26, fontWeight: 400, margin: 0, letterSpacing: "0.01em" }}>Libro de cuentas</h1>
+          </div>
+          <span style={{ fontSize: 11, color: "#9A9378", fontFamily: "'Courier New', monospace" }}>
+            {saveState === "saving" ? "guardando…" : loaded ? "guardado" : ""}
+          </span>
+        </div>
+        <p style={{ fontSize: 13, color: "#6B6553", margin: "0 0 20px" }}>Ingresos, gastos, deudas, presupuesto y ahorros en un solo lugar.</p>
+
+        <div style={{ display: "flex", gap: 22, borderBottom: "1px solid #DCD5C0", marginBottom: 26 }}>
+          {TABS.map(t => (
+            <button key={t.key} className={`lc-navtab ${tab === t.key ? "active" : ""}`} onClick={() => setTab(t.key)}>
+              <Icon name={t.icon} size={15} /> {t.label}
+            </button>
+          ))}
+        </div>
+
+        {tab !== "ahorros" && (
+          <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 24 }}>
+            <button className="lc-icon-btn" style={{ color: "#20281F" }} onClick={() => changeMonth(-1)} aria-label="Mes anterior"><Icon name="chevron-left" size={20}/></button>
+            <div style={{ fontSize: 18, minWidth: 190, textAlign: "center" }}>{MESES[cursor.m]} {cursor.y}</div>
+            <button className="lc-icon-btn" style={{ color: "#20281F" }} onClick={() => changeMonth(1)} aria-label="Mes siguiente"><Icon name="chevron-right" size={20}/></button>
+          </div>
+        )}
+
+        {tab === "resumen" && (
+          <>
+            <div style={{ background: "#20281F", color: "#F4F1E8", padding: "22px 24px", marginBottom: 24 }}>
+              <div style={{ fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", opacity: 0.7, marginBottom: 6 }}>Patrimonio neto estimado</div>
+              <div style={{ fontFamily: "'Courier New', monospace", fontSize: 30 }}>{currency(patrimonioNeto)}</div>
+              <div style={{ fontSize: 11.5, opacity: 0.65, marginTop: 6 }}>Flujo histórico + ahorros acumulados − deuda pendiente</div>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 1, background: "#B9AF95", marginBottom: 30 }}>
+              {[
+                { label: "Ingresos del mes", value: totals.ingreso, icon: "trend-up", ink: TIPOS.ingreso.ink },
+                { label: "Gastos del mes", value: totals.gasto, icon: "trend-down", ink: TIPOS.gasto.ink },
+                { label: "Deuda pendiente", value: historico.deudaPendiente, icon: "bank", ink: TIPOS.deuda.ink },
+                { label: "Ahorro total", value: ahorroTotal, icon: "piggy", ink: TIPOS.ingreso.ink },
+              ].map(card => (
+                <div key={card.label} style={{ background: "#F4F1E8", padding: "16px 18px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#6B6553", fontSize: 11, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 8 }}>
+                    <Icon name={card.icon} size={13}/> {card.label}
+                  </div>
+                  <div style={{ fontFamily: "'Courier New', monospace", fontSize: 19, color: card.ink }}>{currency(card.value)}</div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 30 }}>
+              <div>
+                <h2 style={{ fontSize: 15, fontWeight: 400, textTransform: "uppercase", letterSpacing: "0.06em", color: "#6B6553", marginBottom: 12 }}>Últimos 6 meses</h2>
+                <BarMonthly data={last6} />
+              </div>
+              <div>
+                <h2 style={{ fontSize: 15, fontWeight: 400, textTransform: "uppercase", letterSpacing: "0.06em", color: "#6B6553", marginBottom: 12 }}>Metas de ahorro</h2>
+                {savings.length === 0 ? (
+                  <p style={{ fontSize: 13, color: "#9A9378", fontStyle: "italic" }}>Aún no tienes metas. Crea una en la pestaña Ahorros.</p>
+                ) : savings.slice(0, 4).map(g => {
+                  const pct = Math.min(100, ((Number(g.actual) || 0) / g.meta) * 100);
+                  return (
+                    <div key={g.id} style={{ marginBottom: 14 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, marginBottom: 4 }}>
+                        <span>{g.nombre}</span><span style={{ color: "#6B6553", fontFamily: "'Courier New', monospace" }}>{Math.round(pct)}%</span>
+                      </div>
+                      <div className="progress-track"><div className="progress-fill" style={{ width: `${pct}%`, background: TIPOS.ingreso.ink }} /></div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </>
+        )}
+
+        {tab === "movimientos" && (
+          <>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 1, background: "#B9AF95", marginBottom: 30 }}>
+              {[
+                { label: "Ingresos", value: totals.ingreso, icon: "trend-up", ink: TIPOS.ingreso.ink },
+                { label: "Gastos", value: totals.gasto, icon: "trend-down", ink: TIPOS.gasto.ink },
+                { label: "Deuda pendiente", value: totals.deuda, icon: "bank", ink: TIPOS.deuda.ink },
+                { label: "Balance neto", value: totals.balance, icon: "scale", ink: totals.balance >= 0 ? TIPOS.ingreso.ink : TIPOS.gasto.ink },
+              ].map(card => (
+                <div key={card.label} style={{ background: "#F4F1E8", padding: "16px 18px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#6B6553", fontSize: 11, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 8 }}>
+                    <Icon name={card.icon} size={13}/> {card.label}
+                  </div>
+                  <div style={{ fontFamily: "'Courier New', monospace", fontSize: 20, color: card.ink }}>{currency(card.value)}</div>
+                </div>
+              ))}
+            </div>
+
+            <form onSubmit={addEntry} style={{ marginBottom: 34, background: "#ECE7D8", padding: "18px 20px", border: "1px solid #DCD5C0" }}>
+              <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+                {Object.entries(TIPOS).map(([key, val]) => (
+                  <button type="button" key={key} className={`lc-tab ${form.tipo === key ? "active" : ""}`} onClick={() => handleTipoChange(key)}>{val.label}</button>
+                ))}
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "2fr 1.3fr 1fr 1fr auto", gap: 16, alignItems: "end" }}>
+                <div>
+                  <label style={{ fontSize: 10.5, color: "#6B6553", textTransform: "uppercase", letterSpacing: "0.06em" }}>Descripción</label>
+                  <input className="lc-input" placeholder="Ej. Pago de luz" value={form.descripcion} onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))} required />
+                </div>
+                <div>
+                  <label style={{ fontSize: 10.5, color: "#6B6553", textTransform: "uppercase", letterSpacing: "0.06em" }}>Categoría</label>
+                  <select className="lc-select" value={form.categoria} onChange={e => setForm(f => ({ ...f, categoria: e.target.value }))}>
+                    {CATEGORIAS[form.tipo].map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: 10.5, color: "#6B6553", textTransform: "uppercase", letterSpacing: "0.06em" }}>Monto</label>
+                  <input className="lc-input" type="number" step="0.01" min="0" placeholder="0.00" value={form.monto} onChange={e => setForm(f => ({ ...f, monto: e.target.value }))} required />
+                </div>
+                <div>
+                  <label style={{ fontSize: 10.5, color: "#6B6553", textTransform: "uppercase", letterSpacing: "0.06em" }}>Fecha</label>
+                  <input className="lc-input" type="date" value={form.fecha} onChange={e => setForm(f => ({ ...f, fecha: e.target.value }))} required />
+                </div>
+                <button type="submit" className="lc-btn"><Icon name="plus" size={15} color="#F4F1E8"/> Añadir</button>
+              </div>
+            </form>
+
+            <div style={{ marginBottom: 40 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                <h2 style={{ fontSize: 15, fontWeight: 400, textTransform: "uppercase", letterSpacing: "0.06em", color: "#6B6553", margin: 0 }}>Movimientos de {MESES[cursor.m].toLowerCase()}</h2>
+                <button className="lc-btn-ghost" onClick={exportCSV}><Icon name="download" size={13}/> Exportar CSV</button>
+              </div>
+              {monthEntries.length === 0 ? (
+                <p style={{ fontSize: 13.5, color: "#9A9378", fontStyle: "italic", padding: "20px 0" }}>Sin registros este mes. Añade tu primer movimiento arriba.</p>
+              ) : (
+                <table className="ledger">
+                  <thead><tr><th>Fecha</th><th>Tipo</th><th>Descripción</th><th>Categoría</th><th style={{ textAlign: "right" }}>Monto</th><th></th></tr></thead>
+                  <tbody>
+                    {monthEntries.map(e => (
+                      <tr key={e.id} className="lc-row">
+                        <td style={{ fontFamily: "'Courier New', monospace", color: "#6B6553" }}>{e.fecha.slice(8, 10)}/{e.fecha.slice(5, 7)}</td>
+                        <td><span style={{ fontSize: 11, padding: "2px 8px", background: TIPOS[e.tipo].inkSoft, color: TIPOS[e.tipo].ink, letterSpacing: "0.03em" }}>{TIPOS[e.tipo].label}</span></td>
+                        <td>{e.descripcion}</td>
+                        <td style={{ color: "#6B6553" }}>{e.categoria}</td>
+                        <td style={{ textAlign: "right", fontFamily: "'Courier New', monospace", color: TIPOS[e.tipo].ink }}>{currency(e.monto)}</td>
+                        <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                          {e.tipo === "deuda" && (
+                            <button className="lc-icon-btn" style={{ color: e.estado === "pagada" ? TIPOS.ingreso.ink : "#9A9378", fontSize: 10.5, fontFamily: "'Courier New', monospace" }} onClick={() => toggleDeuda(e.id)} title="Marcar pagada / pendiente">
+                              {e.estado === "pagada" ? "pagada" : "pendiente"}
+                            </button>
+                          )}
+                          <button className="lc-icon-btn" onClick={() => removeEntry(e.id)} aria-label="Eliminar"><Icon name="trash" size={14}/></button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            <div>
+              <h2 style={{ fontSize: 15, fontWeight: 400, textTransform: "uppercase", letterSpacing: "0.06em", color: "#6B6553", marginBottom: 12 }}>Gastos por categoría</h2>
+              <PieCategorias data={gastoPorCategoria} />
+            </div>
+          </>
+        )}
+
+        {tab === "presupuesto" && (
+          <>
+            <div style={{ display: "flex", gap: 1, background: "#B9AF95", marginBottom: 30 }}>
+              <div style={{ background: "#F4F1E8", padding: "16px 18px", flex: 1 }}>
+                <div style={{ fontSize: 11, color: "#6B6553", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Presupuestado</div>
+                <div style={{ fontFamily: "'Courier New', monospace", fontSize: 20 }}>{currency(totalPresupuestado)}</div>
+              </div>
+              <div style={{ background: "#F4F1E8", padding: "16px 18px", flex: 1 }}>
+                <div style={{ fontSize: 11, color: "#6B6553", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Gastado este mes</div>
+                <div style={{ fontFamily: "'Courier New', monospace", fontSize: 20, color: TIPOS.gasto.ink }}>{currency(totals.gasto)}</div>
+              </div>
+              <div style={{ background: "#F4F1E8", padding: "16px 18px", flex: 1 }}>
+                <div style={{ fontSize: 11, color: "#6B6553", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Disponible</div>
+                <div style={{ fontFamily: "'Courier New', monospace", fontSize: 20, color: (totalPresupuestado - totals.gasto) >= 0 ? TIPOS.ingreso.ink : TIPOS.gasto.ink }}>{currency(totalPresupuestado - totals.gasto)}</div>
+              </div>
+            </div>
+
+            <p style={{ fontSize: 12.5, color: "#6B6553", marginBottom: 18 }}>Define cuánto planeas gastar por categoría cada mes. El límite aplica a todos los meses hasta que lo cambies.</p>
+
+            <table className="ledger">
+              <thead><tr><th>Categoría</th><th>Límite mensual</th><th>Gastado ({MESES[cursor.m]})</th><th>Progreso</th></tr></thead>
+              <tbody>
+                {presupuestoEstado.map(row => (
+                  <tr key={row.categoria}>
+                    <td>{row.categoria}</td>
+                    <td style={{ width: 130 }}>
+                      <input className="lc-input" type="number" min="0" step="1" placeholder="0" value={budgets[row.categoria] ?? ""} onChange={e => updateBudget(row.categoria, e.target.value)} />
+                    </td>
+                    <td style={{ fontFamily: "'Courier New', monospace", color: row.sobregiro ? TIPOS.gasto.ink : "#20281F" }}>{currency(row.gastado)}</td>
+                    <td style={{ minWidth: 160 }}>
+                      <div className="progress-track"><div className="progress-fill" style={{ width: `${row.pct}%`, background: row.sobregiro ? TIPOS.gasto.ink : row.pct > 80 ? TIPOS.deuda.ink : TIPOS.ingreso.ink }} /></div>
+                      {row.sobregiro && <div style={{ fontSize: 10.5, color: TIPOS.gasto.ink, marginTop: 3 }}>excedido</div>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        )}
+
+        {tab === "ahorros" && (
+          <>
+            <div style={{ background: "#20281F", color: "#F4F1E8", padding: "22px 24px", marginBottom: 28, display: "flex", alignItems: "center", gap: 14 }}>
+              <Icon name="piggy" size={26} color="#F4F1E8" strokeWidth={1.5}/>
+              <div>
+                <div style={{ fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", opacity: 0.7 }}>Ahorro total acumulado</div>
+                <div style={{ fontFamily: "'Courier New', monospace", fontSize: 24 }}>{currency(ahorroTotal)}</div>
+              </div>
+            </div>
+
+            <form onSubmit={addGoal} style={{ marginBottom: 32, background: "#ECE7D8", padding: "18px 20px", border: "1px solid #DCD5C0" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr auto", gap: 16, alignItems: "end" }}>
+                <div>
+                  <label style={{ fontSize: 10.5, color: "#6B6553", textTransform: "uppercase", letterSpacing: "0.06em" }}>Nombre de la meta</label>
+                  <input className="lc-input" placeholder="Ej. Fondo de emergencia" value={goalForm.nombre} onChange={e => setGoalForm(f => ({ ...f, nombre: e.target.value }))} required />
+                </div>
+                <div>
+                  <label style={{ fontSize: 10.5, color: "#6B6553", textTransform: "uppercase", letterSpacing: "0.06em" }}>Meta</label>
+                  <input className="lc-input" type="number" min="0" step="0.01" placeholder="0.00" value={goalForm.meta} onChange={e => setGoalForm(f => ({ ...f, meta: e.target.value }))} required />
+                </div>
+                <div>
+                  <label style={{ fontSize: 10.5, color: "#6B6553", textTransform: "uppercase", letterSpacing: "0.06em" }}>Fecha objetivo</label>
+                  <input className="lc-input" type="date" value={goalForm.fechaObjetivo} onChange={e => setGoalForm(f => ({ ...f, fechaObjetivo: e.target.value }))} />
+                </div>
+                <button type="submit" className="lc-btn"><Icon name="target" size={15} color="#F4F1E8"/> Crear meta</button>
+              </div>
+            </form>
+
+            {savings.length === 0 ? (
+              <p style={{ fontSize: 13.5, color: "#9A9378", fontStyle: "italic" }}>Aún no tienes metas de ahorro. Crea la primera arriba.</p>
+            ) : (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 18 }}>
+                {savings.map(g => {
+                  const pct = Math.min(100, ((Number(g.actual) || 0) / g.meta) * 100);
+                  return (
+                    <div key={g.id} style={{ border: "1px solid #DCD5C0", padding: "16px 18px", background: "#ECE7D8" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: 8 }}>
+                        <div>
+                          <div style={{ fontSize: 15 }}>{g.nombre}</div>
+                          {g.fechaObjetivo && <div style={{ fontSize: 11, color: "#6B6553" }}>Meta para {g.fechaObjetivo}</div>}
+                        </div>
+                        <button className="lc-icon-btn" onClick={() => removeGoal(g.id)} aria-label="Eliminar meta"><Icon name="trash" size={14}/></button>
+                      </div>
+                      <div style={{ fontFamily: "'Courier New', monospace", fontSize: 15, marginBottom: 8 }}>{currency(g.actual)} <span style={{ color: "#6B6553" }}>/ {currency(g.meta)}</span></div>
+                      <div className="progress-track" style={{ marginBottom: 12 }}><div className="progress-fill" style={{ width: `${pct}%`, background: TIPOS.ingreso.ink }} /></div>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <input className="lc-input" type="number" step="0.01" placeholder="Añadir o retirar monto" value={contribInputs[g.id] || ""} onChange={e => setContribInputs(prev => ({ ...prev, [g.id]: e.target.value }))} />
+                        <button className="lc-btn-ghost" onClick={() => addContribution(g.id)}>Aplicar</button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </>
+        )}
+
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
